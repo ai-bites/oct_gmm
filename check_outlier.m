@@ -3,8 +3,9 @@ function [ isOut,min_mahal] = check_outlier( obj, frame, gmm_k, mahal_thresh)
 %
 % obj   - the objective obtained after fitting the GMM model
 % frame - the frame to be checked to see if it falls within the GMM model
-% num_gauss - number of gaussians in the model
-% isIn  - 0|1. 1 if it is a outlier else 0
+% gmm_k - number of gaussians in the model
+% mahal_thresh - threshold distance for Mahalnobis distance
+% isOut  - 0|1. 1 if it is a outlier else 0
 
 
     % Assume it is out

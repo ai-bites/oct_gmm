@@ -1,4 +1,4 @@
-function [X] = preprocess(location,num_vols)
+function [X,flat_vols] = preprocess(location,num_vols, dataset)
 % Does the preprocessing on the mat files in the location.
 %
 % location - folder+filename. Eg, 'data/DME/patient' where 
@@ -9,7 +9,6 @@ function [X] = preprocess(location,num_vols)
 
     % Read all the needed volumes
     for i = 1:num_vols
-        %fn = strcat('data/normal/normal',num2str(i));
         fn = strcat(location,num2str(i));
         vol = load(fn);
         volumes{i} = vol.vol;
@@ -32,7 +31,7 @@ function [X] = preprocess(location,num_vols)
     for i = 1:num_vols
        [d1 d2 d3] = size(cropped_vols{i});
        for j = 1:d3
-           img = cropped_vols{i}(:,:,j);
+           img = imresize(cropped_vols{i}(:,:,j), 0.5);
            X(:,n) = img(:);
            n = n+1;
        end

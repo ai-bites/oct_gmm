@@ -18,8 +18,12 @@ function [res] = flatten_vol(vol, do_plot)
     
     % One frame from the volume at a time
     for j = 1:d3
-        curr_img = vol(:,:,j);
-
+        % enhance the contrast a bit
+        [hx,hy] = gausskernel(4);
+        imy = imfilter(vol(:,:,j),hy,'replicate','conv');
+        imy = mat2gray(abs(imy));
+        curr_img = double(vol(:,:,j))+imy;
+        
         % Threshold 
         thresh_at = 50;
         mask = curr_img > thresh_at;
@@ -46,7 +50,7 @@ function [res] = flatten_vol(vol, do_plot)
         f_max = max(f_round); 
         f_min = min(f_round);
         new_mask = zeros(m,n);
-        new_img = zeros(m,n);
+        new_img = zeros(d1,d2);
         % Move each column of the image
         % down by a distance based on the polynomial fit
         for i = 1:n
@@ -56,7 +60,7 @@ function [res] = flatten_vol(vol, do_plot)
             img_val = curr_img(idx,i);
             new_img(idx+(f_max - f_round(i)),i) = img_val;
         end
-        res(:,:,j) = new_img;
+        res(:,:,j) = new_img(1:d1,:);
     end
     
     if (do_plot) 

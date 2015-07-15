@@ -11,6 +11,7 @@ function [cropped_vols] = crop_vols(volumes)
     % Decide on the upper and lower bound for the ROI
     k = 1;
     for i = 1:num_vols
+        if (i == 11) continue; end
         [d1 d2 d3] = size(volumes{i});
         for j = 1:d3
             img = volumes{i}(:,:,j);
