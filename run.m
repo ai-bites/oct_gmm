@@ -10,26 +10,23 @@ dataset = 'SERI';
 do_plot = 0;
 % should we do preprocessing to arrive at X matrix. 
 % if not, we use the saved X - X_normal.mat and X_patient.mat
-do_preprocess = 1;
+do_preprocess = 0;
 % should we use the saved X values - X_normal.mat and X_patient.mat?
-saved_results = 0;
+saved_results = 1;
 % Varies based on the dataset
 num_vols = 16;
 frames_per_vol = 128; % for SERI
-% frames_per_vol = 97;    % for duke dataset
 total_frames = num_vols*frames_per_vol;
 % K for PCA dimensions
-pca_k = 900; % for SERI
-% pca_k = 500;   % for duke dataset
-% K for the GMM model
-gmm_k = 5;
+pca_k = 1000;
+% Cross validation using volumens 13-15
+% try different K values for GMM to decide which is best
+GMM_Ks = [2 3 5 8 10 12 15];
 % Threshold for the mahalnobis distance to separate the outliers.
 % the more we set, the lesser outliers (diseased) frames.
-mahal_thresh = 1200; % for our dataset
-% mahal_thresh = 900;    % for duke dataset
+mahal_thresh = chi2inv(0.95, pca_k); % for our dataset
 % Number of frames to train with. Used for cross validation
 train_frames = 12*frames_per_vol; 
-% train_frames = 1019;
 
 
 %% Read data and pre-process them for flattening
@@ -45,10 +42,10 @@ end
 %% Do PCA to lower dimension
 
 if (saved_results)
-    X = load('X_normal');
+    X = load('X_normal_1');
     X = X.X;
 end
-X = X';
+%X = X';
 [X_res, x_mapping] = do_pca(X,pca_k);
 disp('Done with loading X - normal cases');
 
@@ -57,74 +54,106 @@ disp('Done with loading X - normal cases');
 %plot3(X_res(:,1),X_res(:,2),X_res(:,3),'rx');
 
 if (saved_results)
-    Y = load('X_patient');
-    Y = Y.X; 
+    Y = load('X_patient_1');
+    Y = Y.Y; 
 end
-Y = Y';
+%Y = Y';
 [Y_res, y_mapping] = do_pca(Y,pca_k);
 disp('done with loading Y - DME cases');
 
+fprintf('Variance retained after PCA is: %f \n', sum(x_mapping.lambda(1:pca_k))/sum(x_mapping.lambda));
+
 
 %% Now fit a GMM with the data
+% Cross validate for different values of GMM K values
+% and choose which is best 
 
-options = statset('Display','final','MaxIter',1000);
+clc;
+GMM_Ks = [2 3 5 8 10 12];
+options = statset('Display','off','MaxIter',1000);
 
-obj = gmdistribution.fit(X_res,gmm_k, ...
-                        'Options',options, ...
-                        'Regularize',0.001, ...
-                        'Start', 'randSample', ...
-                        'CovType', 'diagonal');
-
-
-%% Cross validation using volumens 13-16
-
-
-outliers = {};
-x_outliers = [];
-n = 1; % count number of outliers
-frame_no = 1; % frame number in the volume
-vol = 1;
-for i = train_frames+1:total_frames
-   %frame_dists(n) = norm(X_res(i,:) - gmm_means);
-   [x_outliers(n) min_mahal(n)] = check_outlier(...
-                                  obj, X_res(i,:), gmm_k, mahal_thresh);
-   n = n+1;
-   frame_no = frame_no+1;
+for ii = 1:length(GMM_Ks)
+    gmm_k = GMM_Ks(ii);
     
-    % reset for next volume
-    if (frame_no > frames_per_vol) 
-        outliers{vol} = x_outliers;
-        frame_no = 1;
-        vol = vol+1;
-        n = 1;
-        x_outliers = [];
+    obj = gmdistribution.fit(X_res(1:train_frames,:),gmm_k, ...
+                            'Options',options, ...
+                            'Regularize',0.001, ...
+                            'Start', 'randSample', ...
+                            'CovType', 'diagonal', ...
+                            'Replicates', 5, ...
+                            'Start', 'randSample');
+
+    outliers = {};
+    x_outliers = [];
+    n = 1; % count number of outliers
+    frame_no = 1; % frame number in the volume
+    vol = 1;
+    for i = train_frames+1:total_frames
+       %frame_dists(n) = norm(X_res(i,:) - gmm_means);
+       [x_outliers(n)] = check_outlier(...
+                                  obj, X_res(i,:), gmm_k, mahal_thresh);
+       n = n+1;
+       frame_no = frame_no+1;
+
+        % reset for next volume
+        if (frame_no > frames_per_vol) 
+            outliers{vol} = x_outliers;
+            frame_no = 1;
+            vol = vol+1;
+            n = 1;
+            x_outliers = [];
+        end
     end
+
+    % Analyse the outliers obtained
+    diseased_frames = 0;
+    diseased_vols = 0;
+    for i = 1:length(outliers)
+        fprintf('Outliers in Vol %d are: %d \n', i, sum(outliers{i}));
+        if (sum(outliers{i} > 0))
+           diseased_vols = diseased_vols+1;
+           diseased_frames = diseased_frames + sum(outliers{i});
+           %fprintf('diseased vol number is: %d \n', i);
+        end
+    end
+    
+    fprintf('For GMM k value: %d \n', gmm_k);
+    fprintf('Total diseased volumes are: %d, total diseased frames are: %d \n',...
+            diseased_vols, diseased_frames);
+    
+    total_diseased(ii) = diseased_frames;
 end
 
-% Analyse the outliers obtained
-diseased_frames = 0;
-diseased_vols = 0;
-for i = 1:length(outliers)
-    if (sum(outliers{i} > 0))
-       diseased_vols = diseased_vols+1;
-       diseased_frames = diseased_frames + sum(outliers{i});
-       fprintf('diseased vol number is: %d \n', i);
-    end
-end
-fprintf('Diseased volumes are: %d, total diseased frames are: %d \n',...
-        diseased_vols, diseased_frames);
+% Choose the best K value for GMM. 
+% We choose the K that returns the least number of diseased frames
+% If more than 2 Ks are best, chose the  min.
+best_gmm_k = min(GMM_Ks(find(total_diseased == min(total_diseased))));
+
 
 %% Classification of diseased volumes
 % To run this step, run the GMM fit step for all volumes.
 
+clc;
 outliers = {};
 y_outliers = [];
 n = 1; % count number of outliers
 frame_no = 1; % frame number in the volume
 vol = 1;
+options = statset('Display','final','MaxIter',1000);
+
+% final model with the best K value for GMM
+% train with all training data
+obj = gmdistribution.fit(X_res,best_gmm_k, ...
+                            'Options',options, ...
+                            'Regularize',0.001, ...
+                            'Start', 'randSample', ...
+                            'CovType', 'diagonal', ...
+                            'Replicates', 5, ...
+                            'Start', 'randSample');
+
 for i = 1:total_frames
     [y_outliers(n)] = check_outlier(...
-                                   obj, Y_res(i,:),gmm_k, mahal_thresh);
+                            obj, Y_res(i,:),gmm_k, mahal_thresh);
     n = n+1;
     frame_no = frame_no+1;
     % reset for next volume
