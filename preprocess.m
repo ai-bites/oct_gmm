@@ -1,4 +1,4 @@
-function [X,flat_vols] = preprocess(location,num_vols, dataset, method)
+function [flat_vols] = preprocess(location, num_vols, dataset, method)
 % Does the preprocessing on the mat files in the location.
 %
 % location - folder+filename. Eg, 'data/DME/patient' where 
@@ -31,58 +31,33 @@ function [X,flat_vols] = preprocess(location,num_vols, dataset, method)
     disp('Done with flattening the volumes');
     
     % Filter using non-local Means filter
-    if (strcmp(lower(method),'lbp'))
-        options.kernelratio = 6;
-        options.windowratio = 6;
-        for i = 1:num_vols
-            [d1 d2 d3] = size(flat_vols{i});
-            for ii = 1:d3
-                I = (flat_vols{i}(:,:,ii));
-                max_I = max(max(I));
-                I = I / max_I;
-                J = NLMF(I,options);
-                flat_vols{i}(:,:,ii) = J*max_I;
+    options.kernelratio = 6;
+    options.windowratio = 6;
+    for i = 1:num_vols
+        [d1 d2 d3] = size(flat_vols{i});
+        for ii = 1:d3
+            I = (flat_vols{i}(:,:,ii));
+            max_I = max(max(I));
+            I = I / max_I;
+            J = NLMF(I,options);
+            flat_vols{i}(:,:,ii) = J*max_I;
+            if (ii == 1)
+               figure; imshow(I,[]);
+               title('Flat b4 filter');
+               figure; imshow(J,[]);
+               title('Flat after filter');
             end
         end
-        disp('Done with NL means filtering images');
     end
+    disp('Done with NL means filtering images');
     
     % Crop the volumes
-    [cropped_vols] = crop_vols(flat_vols);
-    disp('Done with cropping the volumes');
-
-    switch lower(method)
-        % We are dealing with intensity
-        case 'intensity'
-            % Now vectorise frames and form X matrix
-            n = 1;
-            for i = 1:num_vols
-               [d1 d2 d3] = size(cropped_vols{i});
-               for j = 1:d3
-                   %img = imresize(cropped_vols{i}(:,:,j), 0.5);
-                   img = cropped_vols{i}(:,:,j);
-                   X(:,n) = img(:);
-                   n = n+1;
-               end
-            end
-        % We are dealing with the texture
-        case 'lbp'
-            n = 1;
-            for i = 1:length(volumes)
-               [d1 d2 d3] = size(cropped_vols{i});
-               for j = 1:d3
-                  img = cropped_vols{i}(:,:,j);
-                  J = lbp(img, 2, 16, 0, 'h');
-                  X(:,n) = J(:);
-                  n = n+1;
-               end
-            end
-        % None of the above
-        otherwise
-            disp('not the right method for pre-processing');
-            X = 0;
-            return;
-    end
+    % [cropped_vols] = crop_vols(flat_vols);
+    % disp('Done with cropping the volumes');
     
-    disp('Done with forming the X matrix');
+    
+    
+    
+    
+end
 

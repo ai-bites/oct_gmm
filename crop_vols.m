@@ -1,4 +1,4 @@
-function [cropped_vols] = crop_vols(volumes)
+function [cropped_vols] = crop_vols(volumes, dataset)
 % Given a struct of volumes, crops and removes the zero rows 
 % from the frames in the volumes and returns the cropped volumes in a
 % struct.
@@ -11,7 +11,7 @@ function [cropped_vols] = crop_vols(volumes)
     % Decide on the upper and lower bound for the ROI
     k = 1;
     for i = 1:num_vols
-        if (i == 11) continue; end
+        % if (i == 11) continue; end
         [d1 d2 d3] = size(volumes{i});
         for j = 1:d3
             img = volumes{i}(:,:,j);
@@ -30,7 +30,11 @@ function [cropped_vols] = crop_vols(volumes)
     
     % we know the index where to crop. So now crop all volumes
     for i = 1:num_vols
-        cropped_vols{i} = volumes{i}(min_crop:max_crop,:,:);
+        if (strcmp(dataset,'DUKE'))
+            cropped_vols{i} = volumes{i}(min_crop:max_crop,1:256,:);
+        else
+            cropped_vols{i} = volumes{i}(min_crop:256,:,:);
+        end
     end
 
 end
