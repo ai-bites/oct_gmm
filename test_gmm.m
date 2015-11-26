@@ -1,4 +1,4 @@
-function [dis_outliers, norm_outliers] = test_gmm(obj, x_test_vols, Y_cropped_vols, ...
+function [actual_idx, predicted_idx] = test_gmm(obj, x_test_vols, Y_cropped_vols, ...
                     dataset, pca_k, best_gmm_k, mahal_thresh, diseased_vol_thresh, method)
 
 
@@ -8,10 +8,16 @@ function [dis_outliers, norm_outliers] = test_gmm(obj, x_test_vols, Y_cropped_vo
     num_y = length(Y_cropped_vols);
     num_xframes = 0;
     num_yframes = 0;
+    % result of testing expected. 1 for diseased, 0 for normal
+    actual_idx = [ones(num_y,1) ; zeros(num_x, 1)];
+    % we don't really get the index corresponding to the volumes
+    predicted_idx = zeros(num_y+num_x,1);
+    % size of the normal volumes tested
     for a = 1:num_x
         [d1 d2 x_d3] = size(x_test_vols{a});
         num_xframes = num_xframes+x_d3;
     end
+    % size of the diseased volumes tested
     for b = 1:num_y
         [d1 d2 y_d3] = size(Y_cropped_vols{b});
         num_yframes = num_yframes+y_d3;
@@ -37,7 +43,6 @@ function [dis_outliers, norm_outliers] = test_gmm(obj, x_test_vols, Y_cropped_vo
     frame_no = 1; % frame number in the volume
     vol = 1;
     
-    % for 7 volumes, 679
     for i = 1:num_yframes
         [y_outliers(n)] = check_outlier(...
                               obj, Y_test(i,:),best_gmm_k, mahal_thresh);
@@ -53,6 +58,7 @@ function [dis_outliers, norm_outliers] = test_gmm(obj, x_test_vols, Y_cropped_vo
             y_outliers = [];
         end
     end
+    
     % Analyse the outliers obtained
     diseased_frames = 0;
     diseased_vols = 0;
@@ -65,6 +71,7 @@ function [dis_outliers, norm_outliers] = test_gmm(obj, x_test_vols, Y_cropped_vo
     end
     fprintf('TEST: Diseased volumes are: %d, total diseased frames are: %d \n',...
             diseased_vols, diseased_frames);
+    predicted_idx(1:diseased_vols,1) = 1; 
     
     %----------------------------------------------------------------------
     % All Normal test volumes
@@ -103,5 +110,6 @@ function [dis_outliers, norm_outliers] = test_gmm(obj, x_test_vols, Y_cropped_vo
     end
     fprintf('TEST: Normal volumes as diseased are: %d, total diseased frames are: %d \n',...
             diseased_vols, diseased_frames);
+    predicted_idx((num_y+1):(num_y+1+diseased_vols-1), 1) = 1;
     
 end

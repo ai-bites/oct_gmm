@@ -36,9 +36,9 @@ clc;
 fprintf('Best K for GMM is: %d \n', GMM_Ks(find(avg_diseased == min(avg_diseased)))); 
 best_gmm_k = min(GMM_Ks(find(avg_diseased == min(avg_diseased))));
 
+
 %% Fit the final model with all the used volumes
 
-best_gmm_k = 2;
 X = get_features(used_vols, 'lbp', dataset);
 [X_train, X_mapping] = do_pca(X',pca_k);
 
@@ -58,9 +58,13 @@ diseased_vol_thresh = get_disease_thresh(obj, X_train, used_vols, best_gmm_k, ma
 
 %% Now test with the obtained model 
 
-test_gmm(obj, x_test_vols, Y_vols, ...
+[actual_idx, predicted_idx] = test_gmm(obj, x_test_vols, Y_vols, ...
             dataset, pca_k, best_gmm_k, mahal_thresh, diseased_vol_thresh, 'lbp');
 
+% report accuracies now
+[accuracy, sensitivity, specificity] = validate(actual_idx, predicted_idx);
+fprintf('Accuracy is: %f, \n sensitivity is: %f \n specificity is: %f \n',  ...
+            accuracy, sensitivity, specificity); 
 
 % Method 2: %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Extract LBP features and form the X and Y matrix
